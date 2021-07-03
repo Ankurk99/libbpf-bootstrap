@@ -5,8 +5,15 @@
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
 
+/*
+ * Limitations of the code:
+ * 1. Can only be used for the file path matching
+ * 2. Limit on first pass:12chars second pass:64chars third pass:12chars
+ *
+ */
+
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
-//const char wc[] = "*p";
+// const char wc[] = "*/bin/*";
 const char wc[] = "/home/*/*/????/*p";
 
 #if 0
@@ -28,11 +35,9 @@ int BPF_KPROBE(do_execve, const char *name,
 }
 #endif
 
-#define MAX_PATH_SZ 256
-
-#define CHK_TWO  \
-    if (!wild[w] || !str[i])     \
-        goto CHK_TWO_OUT;                                    \
+#define CHK_2  												 \
+    if (!wild[w] || !str[i])                                 \
+        goto CHK_2_OUT;                                      \
 	two++;\
                                                              \
     if (wild[w] == '*') {                                    \
@@ -55,74 +60,42 @@ static int wildcardMatch(const char* str, const char* wild)
 {
     int i = 0, w = 0, mp = 0, cp = 0, one = 0, two = 0, three = 0;
 
-#define CHK_ONE \
-    if (!str[i] || wild[i] == '*') goto CHK_ONE_OUT;\
+#define CHK_1 \
+    if (!str[i] || wild[i] == '*') goto CHK_1_OUT;\
     if ((wild[i] != str[i]) && (wild[i] != '?')) return 0;\
 	one++;\
     i++;
 
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE    CHK_ONE     CHK_ONE    CHK_ONE
-    CHK_ONE_OUT:
+    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1
+    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1
+    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1
+    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1    CHK_1
+    CHK_1_OUT:
     w = i;
 
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO    CHK_TWO    CHK_TWO    CHK_TWO
-    CHK_TWO_OUT:
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2    CHK_2
+    CHK_2_OUT:
 
-#define CHK_THREE    \
-    if (wild[w] != '*') goto CHK_THREE_OUT;\
+#define CHK_3    \
+    if (wild[w] != '*') goto CHK_3_OUT;\
 	three++;\
 	w++;
 
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE    CHK_THREE    CHK_THREE    CHK_THREE
-    CHK_THREE_OUT:
+    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3
+    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3
+    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3
+    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3    CHK_3
+    CHK_3_OUT:
 
-	if (!wild[w]) {
-		bpf_printk("one=%d, two=%d, three=%d\n", one, two, three);
+    if (!wild[w]) {
+		bpf_printk("one:%d two:%d three:%d\n", one, two, three);
 	}
 
     return !wild[w];
@@ -147,7 +120,7 @@ int BPF_KRETPROBE(do_execve_exit)
 SEC("tracepoint/syscalls/sys_enter_execve")
 int tracepoint__syscalls__sys_enter_execve(struct trace_event_raw_sys_enter* ctx)
 {
-	char filename[256];
+	char filename[128];
 
 	bpf_probe_read_user_str(filename, sizeof(filename), (const char*)ctx->args[0]);
 	if (wildcardMatch(filename, wc)) {
