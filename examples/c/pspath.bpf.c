@@ -36,6 +36,22 @@ int BPF_KPROBE(do_execve, const char *name,
 }
 #endif
 
+#define STR_T         10UL
+#define MAX_BUFFER_SIZE   32768
+#define MAX_PERCPU_BUFSIZE 256
+#define MAX_STRING_SIZE 128
+#define MAX_PATH_SZ 32
+#define MAX_PATH_COMPONENTS 10
+
+struct bpf_map_def SEC("maps") path_buffer = {
+      .type = BPF_MAP_TYPE_ARRAY,
+      .key_size = sizeof(u32),
+      .value_size = 32,
+      .max_entries = 256,
+};
+
+
+
 SEC("tracepoint/syscalls/sys_enter_execve")
 int tracepoint__syscalls__sys_enter_execve(struct trace_event_raw_sys_enter* ctx)
 {
@@ -94,13 +110,8 @@ static inline struct mount *real_mount(struct vfsmount *mnt)
     return container_of(mnt, struct mount, mnt);
 }
 
-#define MAX_PERCPU_BUFSIZE 256
-#define MAX_STRING_SIZE 128
-#define MAX_PATH_SZ 32
-#define MAX_PATH_COMPONENTS 10
-
 static inline int copystr(char *dst, char *src, int len) {
-	int c=0;
+	int c = 0;
 #pragma unroll
 	for (;;c++) {
 		if(c>=len) break;
@@ -132,6 +143,7 @@ static __always_inline void get_path_str(struct path *path)//, char *filename, i
 	char filename[128];
 	int off = 0;
 	int pcidx = MAX_PATH_COMPONENTS - 1;
+    int last;
 
     #pragma unroll
     for (int i = 0; i < MAX_PATH_COMPONENTS; i++) {
@@ -173,10 +185,59 @@ static __always_inline void get_path_str(struct path *path)//, char *filename, i
 		}
         dentry = d_parent;
     }
-#pragma unroll
-	for (pcidx++;pcidx<MAX_PATH_COMPONENTS;pcidx++) {
-		bpf_printk("part=%s\n", pc[pcidx]);
-	}
+
+    int index = 0;
+    void* value = 0;
+    int s = pcidx;
+    int position = 0;
+    void* path_str = 0;
+    char filepathname[32] = {0};
+    char fullname[32] = {0};
+    int l = -1;
+    int psize = 0;
+    #define KEY_SIZE (sizeof(filepathname) - 1)
+    int k = 0;
+    int path_sz = MAX_STRING_SIZE;
+    #pragma unroll
+        for (pcidx++;pcidx<MAX_PATH_COMPONENTS;pcidx++, index++) {
+            //bpf_printk("part=%s", pc[pcidx]);
+            bpf_map_update_elem(&path_buffer, &index, &pc[pcidx], BPF_ANY);
+            // value = bpf_map_lookup_elem(&path_buffer, &index);
+            // bpf_printk("value= %s\n", value);
+        }
+
+    for (s++; s < MAX_PATH_COMPONENTS; s++, position++) {
+        path_str = bpf_map_lookup_elem(&path_buffer, &position);
+       // bpf_printk("path_str: %s", path_str);
+        psize = bpf_probe_read_str(filepathname, KEY_SIZE, path_str);
+        bpf_printk("filepathname: %s", filepathname);
+        path_sz -= (psize + 1);
+        if (path_sz < 0)
+            break;
+        
+        //bpf_printk("psize: %d", psize-1);
+        int pathsz = bpf_probe_read_str(&(fullname[(path_sz) & (MAX_STRING_SIZE - 1)]), (psize + 1) & (MAX_STRING_SIZE - 1), filepathname);
+
+        if (pathsz > 1) {
+			bpf_probe_read(&(fullname[(path_sz + psize) &(MAX_STRING_SIZE - 1)]), 1, &slash);
+		} else {
+            path_sz += (psize + 1);
+		}
+
+
+        // for (l = 0; l < 20; l++) {
+        //     fullname[l + path_sz] = filepathname[l];
+        // }
+        bpf_printk("fullname: %s", fullname);
+        //path_sz = path_sz + psize + 1;
+        bpf_printk("path_sz: %d", path_sz);
+    }
+            bpf_printk("fullname1: %s", fullname[0]);
+        // for (; l < 12; l++) {
+        //     bpf_printk("fullname: %s", fullname);
+        // }
+    //    bpf_printk("filepathname: %s\n", filepathname);
+
 }
 
 SEC("kprobe/security_bprm_check")
